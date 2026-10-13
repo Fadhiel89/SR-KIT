@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SR Kit - Sistem Monitoring Rehabilitasi Pasien Stroke</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              900: '#0c4a6e',
+            },
+            medical: {
+              teal: '#0d9488',
+              emerald: '#059669',
+              amber: '#d97706',
+              rose: '#e11d48'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome 6 CDN Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Vue.js 3 CDN (Global Build) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 antialiased flex flex-col justify-between">
+
+  <!-- Vue 3 Root Application Container -->
+  <div id="app" class="flex-grow flex flex-col" v-cloak>
+
+    <!-- ===================================================================== -->
+    <!-- TOAST NOTIFICATION CONTAINER                                          -->
+    <!-- ===================================================================== -->
+    <div class="fixed top-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none">
+      <transition-group name="toast-slide">
+        <div 
+          v-for="toast in toasts" 
+          :key="toast.id" 
+          :class="[
+            'pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all max-w-md',
+            toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+            toast.type === 'error' ? 'bg-rose-50 text-rose-800 border-rose-200' :
+            toast.type === 'warning' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+            'bg-sky-50 text-sky-800 border-sky-200'
+          ]"
+        >
+          <i :class="[
+            toast.type === 'success' ? 'fa-solid fa-circle-check text-emerald-600' :
+            toast.type === 'error' ? 'fa-solid fa-circle-xmark text-rose-600' :
+            toast.type === 'warning' ? 'fa-solid fa-triangle-exclamation text-amber-600' :
+            'fa-solid fa-circle-info text-sky-600'
+          ]"></i>
+          <span>{{ toast.message }}</span>
+        </div>
+      </transition-group>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW A: HALAMAN LOGIN                                                 -->
+    <!-- ===================================================================== -->
+    <div v-if="currentView === 'login'" class="min-h-screen hero-pattern flex items-center justify-center p-4 sm:p-6">
+      <div class="w-full max-w-md bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/60 p-8 sm:p-10 relative overflow-hidden transition-all duration-300">
+        
+        <!-- Decorative Top Gradient Accent -->
+        <div class="absolute top-0 left-0 right-0 h-2 medical-gradient"></div>
+
+        <!-- Header Brand -->
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-600 to-teal-500 text-white shadow-lg shadow-sky-500/25 mb-4">
+            <i class="fa-solid fa-heart-pulse text-2xl"></i>
+          </div>
+          <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">SR Kit System</h1>
+          <p class="text-xs uppercase tracking-widest font-semibold text-sky-600 mt-1">Stroke Rehabilitation Kit</p>
+          <p class="text-sm text-slate-500 mt-2">Masuk ke sistem monitoring dan analisis data rehabilitasi pasien</p>
+        </div>
+
+        <!-- Form Login -->
+        <form @submit.prevent="handleLogin" class="space-y-5">
+          <!-- Input Email -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Email Tenaga Medis</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                <i class="fa-regular fa-envelope"></i>
+              </span>
+              <input 
+                type="email" 
+                v-model="loginForm.email" 
+                placeholder="nama@srkit.med"
+                required
+                class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition"
+              />
+            </div>
+          </div>
+
+          <!-- Input Password -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Kata Sandi</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                <i class="fa-solid fa-lock"></i>
+              </span>
+              <input 
+                type="password" 
+                v-model="loginForm.password" 
+                placeholder="••••••••"
+                required
+                class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition"
+              />
+            </div>
+          </div>
+
+          <!-- Tombol Masuk -->
+          <button 
+            type="submit" 
+            :disabled="isLoading"
+            class="w-full py-3.5 px-4 bg-sky-600 hover:bg-sky-700 active:scale-[0.99] text-white font-semibold rounded-xl shadow-lg shadow-sky-600/30 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70"
+          >
+            <i v-if="isLoading" class="fa-solid fa-circle-notch fa-spin"></i>
+            <span v-if="!isLoading">Masuk ke Dashboard</span>
+            <span v-else>Memverifikasi...</span>
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="relative my-6 text-center">
+          <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div>
+          <span class="relative px-3 bg-white text-xs font-medium text-slate-400 uppercase tracking-wider">Akses Cepat Demo</span>
+        </div>
+
+        <!-- Tombol Demo Login -->
+        <div class="grid grid-cols-2 gap-3">
+          <button 
+            type="button" 
+            @click="quickLogin('dokter')"
+            class="flex items-center justify-center gap-2 py-2.5 px-3 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-semibold rounded-xl border border-sky-200 transition"
+          >
+            <i class="fa-solid fa-user-doctor text-sky-600"></i>
+            <span>Demo Dokter (Sp.S)</span>
+          </button>
+          <button 
+            type="button" 
+            @click="quickLogin('perawat')"
+            class="flex items-center justify-center gap-2 py-2.5 px-3 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold rounded-xl border border-teal-200 transition"
+          >
+            <i class="fa-solid fa-user-nurse text-teal-600"></i>
+            <span>Demo Perawat</span>
+          </button>
+        </div>
+
+        <!-- Footer Info -->
+        <div class="mt-8 text-center text-xs text-slate-400">
+          <span>Integrasi Google Sheets & Apps Script REST API</span>
+          <button @click="isConfigModalOpen = true" class="block mx-auto mt-1 text-sky-600 hover:underline">
+            <i class="fa-solid fa-sliders mr-1"></i>Konfigurasi API Endpoint
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+
+    <!-- ===================================================================== -->
+    <!-- VIEW B: HALAMAN DASHBOARD UTAMA                                       -->
+    <!-- ===================================================================== -->
+    <div v-else-if="currentView === 'dashboard'" class="flex flex-col min-h-screen">
+      
+      <!-- 1. NAVBAR DASHBOARD -->
+      <header class="sticky top-0 z-40 glass-nav">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            
+            <!-- Logo & Brand Name -->
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+                <i class="fa-solid fa-heart-pulse"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h1 class="text-lg font-bold text-slate-900 leading-none">SR Kit Dashboard</h1>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 pulse-dot"></span>
+                    {{ isLiveApi ? 'Google Sheets Live' : 'Demo Local Mode' }}
+                  </span>
+                </div>
+                <p class="text-xs text-slate-500 hidden sm:block">Sistem Monitoring & Evaluasi Latihan Pasien Stroke</p>
+              </div>
+            </div>
+
+            <!-- Profile & Action Tools -->
+            <div class="flex items-center gap-3">
+              <!-- Tombol Pengaturan API Endpoint -->
+              <button 
+                @click="isConfigModalOpen = true" 
+                title="Konfigurasi API Endpoint"
+                class="p-2 text-slate-500 hover:text-sky-600 hover:bg-slate-100 rounded-lg transition"
+              >
+                <i class="fa-solid fa-gear"></i>
+              </button>
+
+              <!-- Profile Badge -->
+              <div class="flex items-center gap-3 pl-2 border-l border-slate-200">
+                <img 
+                  :src="currentUser?.avatar || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150'" 
+                  alt="Avatar" 
+                  class="w-9 h-9 rounded-full object-cover ring-2 ring-sky-500/30"
+                />
+                <div class="hidden md:block text-left">
+                  <p class="text-xs font-bold text-slate-800 leading-tight">{{ currentUser?.name }}</p>
+                  <span class="text-[11px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">
+                    {{ currentUser?.role }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Tombol Logout -->
+              <button 
+                @click="handleLogout" 
+                title="Keluar dari akun"
+                class="ml-2 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl border border-rose-200 transition flex items-center gap-1.5"
+              >
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                <span class="hidden sm:inline">Logout</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </header>
+
+      <!-- 2. MAIN CONTENT AREA -->
+      <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full space-y-8">
+        
+        <!-- A. BANNER WELCOME & QUICK ACTION -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-sky-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+          <div class="relative z-10">
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-sky-200 text-xs font-medium backdrop-blur-md mb-2">
+              <i class="fa-solid fa-stethoscope"></i> Portal Rehabilitasi Medis
+            </span>
+            <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Selamat Bertugas, {{ currentUser?.name }}</h2>
+            <p class="text-slate-300 text-sm mt-1 max-w-xl">
+              Pantau perkembangan Range of Motion (ROM) dan intensitas durasi latihan pasien yang menggunakan perangkat rehabilitasi SR Kit.
+            </p>
+          </div>
+          <div class="relative z-10 flex flex-wrap gap-3">
+            <button 
+              @click="openAddPatientModal"
+              class="px-4 py-2.5 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-sky-500/25 transition flex items-center gap-2"
+            >
+              <i class="fa-solid fa-user-plus"></i>
+              <span>Tambah Pasien Baru</span>
+            </button>
+            <button 
+              @click="loadPatients"
+              class="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl backdrop-blur-md border border-white/20 transition flex items-center gap-2"
+            >
+              <i class="fa-solid fa-rotate" :class="{ 'fa-spin': isLoading }"></i>
+              <span>Sinkronkan Data</span>
+            </button>
+          </div>
+          <!-- Background Subtle Graphic -->
+          <div class="absolute right-0 bottom-0 opacity-10 pointer-events-none translate-x-10 translate-y-10">
+            <i class="fa-solid fa-heart-pulse text-[220px]"></i>
+          </div>
+        </div>
+
+        <!-- B. STATISTIK CARDS (RINGKASAN DATA) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          
+          <!-- Card 1: Total Pasien -->
+          <div class="glass-card rounded-2xl p-5 border-l-4 border-l-sky-500 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Pasien</p>
+              <h3 class="text-3xl font-extrabold text-slate-800 mt-1">{{ totalPatientsCount }}</h3>
+              <p class="text-xs text-slate-500 mt-1">Terdaftar dalam protokol SR Kit</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center text-xl shadow-inner">
+              <i class="fa-solid fa-users"></i>
+            </div>
+          </div>
+
+          <!-- Card 2: Pasien Stroke Ringan (Hijau / Biru Muda) -->
+          <div class="glass-card rounded-2xl p-5 border-l-4 border-l-emerald-500 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wider text-emerald-600">Stroke Ringan</p>
+              <h3 class="text-3xl font-extrabold text-slate-800 mt-1">{{ countRingan }}</h3>
+              <p class="text-xs text-slate-500 mt-1">Fokus penguatan & kelenturan</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shadow-inner">
+              <i class="fa-solid fa-user-check"></i>
+            </div>
+          </div>
+
+          <!-- Card 3: Pasien Stroke Sedang (Kuning / Orange) -->
+          <div class="glass-card rounded-2xl p-5 border-l-4 border-l-amber-500 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wider text-amber-600">Stroke Sedang</p>
+              <h3 class="text-3xl font-extrabold text-slate-800 mt-1">{{ countSedang }}</h3>
+              <p class="text-xs text-slate-500 mt-1">Latihan terbimbing intensif</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl shadow-inner">
+              <i class="fa-solid fa-user-clock"></i>
+            </div>
+          </div>
+
+          <!-- Card 4: Pasien Stroke Berat (Merah) -->
+          <div class="glass-card rounded-2xl p-5 border-l-4 border-l-rose-500 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wider text-rose-600">Stroke Berat</p>
+              <h3 class="text-3xl font-extrabold text-slate-800 mt-1">{{ countBerat }}</h3>
+              <p class="text-xs text-slate-500 mt-1">Mobilisasi pasif & sensorik</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl shadow-inner">
+              <i class="fa-solid fa-user-injured"></i>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- C. TABEL DAFTAR PASIEN -->
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
+          
+          <!-- Table Controls: Search Bar & Filters -->
+          <div class="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+            <div>
+              <h3 class="text-lg font-bold text-slate-900">Daftar Pasien Rehabilitasi</h3>
+              <p class="text-xs text-slate-500">Pilih pasien untuk membuka detail rekap latihan harian & grafik ROM</p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <!-- Search Bar -->
+              <div class="relative min-w-[240px]">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                  <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                </span>
+                <input 
+                  type="text" 
+                  v-model="searchQuery"
+                  placeholder="Cari nama atau ID..."
+                  class="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
+                />
+              </div>
+
+              <!-- Filter Kategori Kategori Stroke -->
+              <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
+                <button 
+                  v-for="cat in ['Semua', 'Ringan', 'Sedang', 'Berat']" 
+                  :key="cat"
+                  @click="filterCategory = cat"
+                  :class="[
+                    'px-2.5 py-1 text-xs font-semibold rounded-lg transition',
+                    filterCategory === cat ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  ]"
+                >
+                  {{ cat }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table Responsive Container -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th class="py-3.5 px-4 sm:px-6">ID Pasien</th>
+                  <th class="py-3.5 px-4 sm:px-6">Nama & Biodata</th>
+                  <th class="py-3.5 px-4 sm:px-6">Umur</th>
+                  <th class="py-3.5 px-4 sm:px-6">Kategori Stroke</th>
+                  <th class="py-3.5 px-4 sm:px-6">Dokter Penanggung Jawab</th>
+                  <th class="py-3.5 px-4 sm:px-6">Status Latihan</th>
+                  <th class="py-3.5 px-4 sm:px-6 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-sm font-medium">
+                
+                <!-- Loading State -->
+                <tr v-if="isLoading && !patients.length">
+                  <td colspan="7" class="py-12 text-center text-slate-400">
+                    <i class="fa-solid fa-circle-notch fa-spin text-2xl text-sky-600 mb-2"></i>
+                    <p class="text-xs">Memuat data pasien...</p>
+                  </td>
+                </tr>
+
+                <!-- Empty State -->
+                <tr v-else-if="!filteredPatients.length">
+                  <td colspan="7" class="py-12 text-center text-slate-400">
+                    <i class="fa-regular fa-folder-open text-3xl mb-2 text-slate-300"></i>
+                    <p class="text-sm font-semibold text-slate-600">Tidak ada pasien yang sesuai</p>
+                    <p class="text-xs text-slate-400">Coba ubah kata kunci pencarian atau filter kategori</p>
+                  </td>
+                </tr>
+
+                <!-- Patient Data Row -->
+                <tr 
+                  v-for="patient in filteredPatients" 
+                  :key="patient.id"
+                  class="hover:bg-sky-50/40 transition-colors"
+                >
+                  <!-- ID Pasien -->
+                  <td class="py-4 px-4 sm:px-6 font-mono text-xs font-bold text-slate-600">
+                    <span class="bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
+                      {{ patient.id }}
+                    </span>
+                  </td>
+
+                  <!-- Nama Pasien -->
+                  <td class="py-4 px-4 sm:px-6">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full bg-sky-100 text-sky-700 font-bold flex items-center justify-center text-xs">
+                        {{ patient.name.charAt(0) }}
+                      </div>
+                      <div>
+                        <p class="font-bold text-slate-800 leading-tight">{{ patient.name }}</p>
+                        <span class="text-xs text-slate-400 flex items-center gap-1">
+                          <i :class="patient.gender === 'Perempuan' ? 'fa-solid fa-venus text-pink-500' : 'fa-solid fa-mars text-blue-500'"></i>
+                          {{ patient.gender }}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Umur -->
+                  <td class="py-4 px-4 sm:px-6 text-slate-700">
+                    {{ patient.age }} Tahun
+                  </td>
+
+                  <!-- Kategori Stroke -->
+                  <td class="py-4 px-4 sm:px-6">
+                    <span 
+                      :class="[
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold',
+                        patient.strokeCategory === 'Ringan' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                        patient.strokeCategory === 'Sedang' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                        'bg-rose-50 text-rose-700 border border-rose-200'
+                      ]"
+                    >
+                      <i class="fa-solid fa-circle text-[6px]"></i>
+                      {{ patient.strokeCategory }}
+                    </span>
+                  </td>
+
+                  <!-- Dokter Penanggung Jawab -->
+                  <td class="py-4 px-4 sm:px-6 text-xs text-slate-600">
+                    <div class="flex items-center gap-1.5">
+                      <i class="fa-solid fa-user-doctor text-sky-600"></i>
+                      <span>{{ patient.doctorInCharge }}</span>
+                    </div>
+                  </td>
+
+                  <!-- Status Latihan -->
+                  <td class="py-4 px-4 sm:px-6">
+                    <span 
+                      :class="[
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold',
+                        patient.exerciseStatus === 'Aktif' ? 'bg-emerald-100/70 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                      ]"
+                    >
+                      <span v-if="patient.exerciseStatus === 'Aktif'" class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-dot"></span>
+                      {{ patient.exerciseStatus }}
+                    </span>
+                  </td>
+
+                  <!-- Tombol Aksi Detail -->
+                  <td class="py-4 px-4 sm:px-6 text-center">
+                    <button 
+                      @click="openPatientDetail(patient)"
+                      class="px-3 py-1.5 bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white rounded-xl text-xs font-bold border border-sky-200 hover:border-transparent transition flex items-center justify-center gap-1.5 mx-auto"
+                    >
+                      <i class="fa-solid fa-chart-line"></i>
+                      <span>Detail</span>
+                    </button>
+                  </td>
+                </tr>
+
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Table Footer Counter -->
+          <div class="p-4 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Menampilkan {{ filteredPatients.length }} dari {{ patients.length }} total pasien</span>
+            <span class="font-medium">SR Kit Monitoring v1.0</span>
+          </div>
+
+        </div>
+
+      </main>
+
+      <!-- 3. FOOTER -->
+      <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+        <p>© 2026 SR Kit (Stroke Rehabilitation Kit) - Modul Monitoring & Evaluasi Terpadu.</p>
+        <p class="mt-1 text-slate-400">Didukung oleh Vue.js 3, Google Sheets & Apps Script REST API.</p>
+      </footer>
+
+    </div>
+
+
+    <!-- ===================================================================== -->
+    <!-- VIEW C: MODAL DETAIL PASIEN & REKAP HARIAN (POP-UP)                    -->
+    <!-- ===================================================================== -->
+    <div 
+      v-if="isPatientModalOpen" 
+      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-slate-900/60 backdrop-blur-sm transition-all"
+    >
+      <div 
+        class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl my-auto max-h-[92vh] flex flex-col overflow-hidden modal-enter-active"
+      >
+        
+        <!-- MODAL HEADER: Profil Singkat Pasien -->
+        <div class="p-5 sm:p-6 bg-gradient-to-r from-sky-900 via-slate-900 to-teal-900 text-white flex items-start justify-between relative overflow-hidden">
+          <div class="relative z-10 flex flex-wrap sm:flex-nowrap items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-2xl font-black text-sky-300 border border-white/20">
+              {{ selectedPatient?.name.charAt(0) }}
+            </div>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h2 class="text-xl sm:text-2xl font-extrabold">{{ selectedPatient?.name }}</h2>
+                <span class="font-mono text-xs px-2 py-0.5 rounded bg-white/20 text-sky-200 font-bold">
+                  {{ selectedPatient?.id }}
+                </span>
+                <span 
+                  :class="[
+                    'text-xs font-bold px-2.5 py-0.5 rounded-full',
+                    selectedPatient?.strokeCategory === 'Ringan' ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30' :
+                    selectedPatient?.strokeCategory === 'Sedang' ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30' :
+                    'bg-rose-400/20 text-rose-300 border border-rose-400/30'
+                  ]"
+                >
+                  Stroke {{ selectedPatient?.strokeCategory }}
+                </span>
+              </div>
+              <p class="text-xs text-slate-300 mt-1 flex items-center gap-3 flex-wrap">
+                <span><i class="fa-solid fa-cake-candles mr-1 text-sky-400"></i>{{ selectedPatient?.age }} Thn ({{ selectedPatient?.gender }})</span>
+                <span><i class="fa-solid fa-user-doctor mr-1 text-teal-400"></i>DPJP: {{ selectedPatient?.doctorInCharge }}</span>
+                <span><i class="fa-solid fa-bullseye mr-1 text-amber-400"></i>Target ROM: {{ selectedPatient?.targetRom }}%</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Action Buttons (Print & Close) -->
+          <div class="flex items-center gap-2 relative z-10 no-print">
+            <button 
+              @click="printPatientReport"
+              title="Cetak Ringkasan"
+              class="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition"
+            >
+              <i class="fa-solid fa-print"></i>
+            </button>
+            <button 
+              @click="closePatientDetail"
+              title="Tutup Modal"
+              class="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-xl transition"
+            >
+              <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- MODAL BODY SCROLLABLE -->
+        <div class="p-5 sm:p-6 overflow-y-auto space-y-6 flex-grow bg-slate-50/50">
+          
+          <!-- QUICK STATS ROW -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+              <span class="text-[11px] font-bold text-slate-400 uppercase">Capaian ROM Rata-rata</span>
+              <p class="text-xl font-extrabold text-teal-600 mt-0.5">{{ averageRom }}%</p>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+              <span class="text-[11px] font-bold text-slate-400 uppercase">Total Menit Latihan</span>
+              <p class="text-xl font-extrabold text-sky-600 mt-0.5">{{ totalMinutesTrained }} Menit</p>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+              <span class="text-[11px] font-bold text-slate-400 uppercase">Jumlah Sesi Latihan</span>
+              <p class="text-xl font-extrabold text-slate-800 mt-0.5">{{ dailyLogs.length }} Sesi</p>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+              <span class="text-[11px] font-bold text-slate-400 uppercase">Target ROM Medis</span>
+              <p class="text-xl font-extrabold text-amber-600 mt-0.5">{{ selectedPatient?.targetRom }}%</p>
+            </div>
+          </div>
+
+          <!-- 1. VISUALISASI DATA: CHART.JS GRAPH -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <i class="fa-solid fa-chart-area text-sky-600"></i>
+                  <span>Grafik Tren Durasi & Capaian ROM (7 Sesi Terakhir)</span>
+                </h4>
+                <p class="text-xs text-slate-500">Korelasi antara durasi pemakaian alat SR Kit dan capaian Range of Motion</p>
+              </div>
+              <span class="text-xs bg-sky-50 text-sky-700 px-2 py-1 rounded-md font-semibold border border-sky-200">
+                Dual Axis Metric
+              </span>
+            </div>
+
+            <!-- Canvas Chart -->
+            <div class="chart-container">
+              <canvas id="exerciseChartCanvas"></canvas>
+            </div>
+          </div>
+
+          <!-- 2. FORM TAMBAH REKAP LATIHAN HARIAN -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm no-print">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-notes-medical"></i>
+              </div>
+              <h4 class="text-sm font-bold text-slate-900">Input Rekap Sesi Latihan Harian Baru</h4>
+            </div>
+
+            <form @submit.prevent="submitDailyLog" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              
+              <!-- Tanggal -->
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Tanggal</label>
+                <input 
+                  type="date" 
+                  v-model="logForm.date" 
+                  required
+                  class="w-full text-xs py-2 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+                />
+              </div>
+
+              <!-- Durasi (Menit) -->
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Durasi (Menit)</label>
+                <input 
+                  type="number" 
+                  v-model.number="logForm.durationMinutes" 
+                  min="1" 
+                  max="180" 
+                  required
+                  placeholder="Contoh: 30"
+                  class="w-full text-xs py-2 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+                />
+              </div>
+
+              <!-- Capaian ROM (%) -->
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Capaian ROM (%)</label>
+                <input 
+                  type="number" 
+                  v-model.number="logForm.romPercentage" 
+                  min="0" 
+                  max="100" 
+                  required
+                  placeholder="0 - 100"
+                  class="w-full text-xs py-2 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+                />
+              </div>
+
+              <!-- Sesi Latihan -->
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Sesi</label>
+                <select 
+                  v-model="logForm.session"
+                  class="w-full text-xs py-2 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+                >
+                  <option value="Pagi">Pagi (08:00 - 11:00)</option>
+                  <option value="Siang">Siang (11:00 - 14:00)</option>
+                  <option value="Sore">Sore (15:00 - 18:00)</option>
+                </select>
+              </div>
+
+              <!-- Tombol Simpan -->
+              <div class="sm:col-span-2 lg:col-span-1 flex items-end">
+                <button 
+                  type="submit" 
+                  :disabled="isSubmittingLog"
+                  class="w-full py-2 px-3 bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-1.5 h-[34px] disabled:opacity-70"
+                >
+                  <i v-if="isSubmittingLog" class="fa-solid fa-circle-notch fa-spin"></i>
+                  <i v-else class="fa-solid fa-floppy-disk"></i>
+                  <span>Simpan Rekap</span>
+                </button>
+              </div>
+
+              <!-- Catatan Evaluasi (Lebar Penuh) -->
+              <div class="sm:col-span-2 lg:col-span-5">
+                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Catatan Evaluasi Klinis</label>
+                <input 
+                  type="text" 
+                  v-model="logForm.notes" 
+                  placeholder="Misal: Fleksi siku bertambah baik, tidak tampak kelelahan ekstrem..."
+                  class="w-full text-xs py-2 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+                />
+              </div>
+
+            </form>
+          </div>
+
+          <!-- 3. TABEL RIWAYAT LATIHAN LENGKAP -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 bg-slate-50/60 border-b border-slate-100 flex items-center justify-between">
+              <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-slate-500"></i>
+                <span>Tabel Riwayat Rekap Latihan SR Kit</span>
+              </h4>
+              <span class="text-xs text-slate-500 font-semibold">{{ dailyLogs.length }} Catatan</span>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th class="py-2.5 px-4">Tanggal</th>
+                    <th class="py-2.5 px-4">Sesi</th>
+                    <th class="py-2.5 px-4">Durasi</th>
+                    <th class="py-2.5 px-4">Capaian ROM</th>
+                    <th class="py-2.5 px-4">Catatan Evaluasi</th>
+                    <th class="py-2.5 px-4">Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
+                  
+                  <tr v-if="!dailyLogs.length">
+                    <td colspan="6" class="py-8 text-center text-slate-400">
+                      Belum ada rekapan latihan untuk pasien ini. Silakan input pada form di atas.
+                    </td>
+                  </tr>
+
+                  <tr v-for="log in dailyLogs" :key="log.id" class="hover:bg-slate-50/60 transition">
+                    <td class="py-3 px-4 font-mono font-semibold">{{ String(log.date).split('T')[0] }}</td>
+                    <td class="py-3 px-4">
+                      <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                        {{ log.session }}
+                      </span>
+                    </td>
+                    <td class="py-3 px-4 font-bold text-sky-700">
+                      {{ log.durationMinutes }} Menit
+                    </td>
+                    <td class="py-3 px-4">
+                      <div class="flex items-center gap-2">
+                        <div class="w-16 bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div 
+                            class="bg-teal-500 h-2 rounded-full" 
+                            :style="{ width: `${Math.min(100, log.romPercentage)}%` }"
+                          ></div>
+                        </div>
+                        <span class="font-bold text-teal-700">{{ log.romPercentage }}%</span>
+                      </div>
+                    </td>
+                    <td class="py-3 px-4 text-slate-600 max-w-xs truncate" :title="log.notes">
+                      {{ log.notes || '-' }}
+                    </td>
+                    <td class="py-3 px-4 text-slate-500 text-[11px]">
+                      {{ log.recordedBy }}
+                    </td>
+                  </tr>
+
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- MODAL FOOTER -->
+        <div class="p-4 bg-white border-t border-slate-200 flex justify-end gap-2 no-print">
+          <button 
+            @click="closePatientDetail"
+            class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+          >
+            Tutup
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+
+    <!-- ===================================================================== -->
+    <!-- MODAL TAMBAH PASIEN BARU                                              -->
+    <!-- ===================================================================== -->
+    <div 
+      v-if="isAddPatientModalOpen" 
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+    >
+      <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden modal-enter-active">
+        <div class="p-5 bg-gradient-to-r from-sky-700 to-teal-700 text-white flex items-center justify-between">
+          <h3 class="text-base font-bold flex items-center gap-2">
+            <i class="fa-solid fa-user-plus"></i>
+            <span>Pendaftaran Pasien SR Kit Baru</span>
+          </h3>
+          <button @click="isAddPatientModalOpen = false" class="text-white/80 hover:text-white">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <form @submit.prevent="submitNewPatient" class="p-6 space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nama Lengkap Pasien</label>
+            <input 
+              type="text" 
+              v-model="patientForm.name" 
+              required
+              placeholder="Contoh: Bambang Hermanto"
+              class="w-full text-sm py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Umur (Tahun)</label>
+              <input 
+                type="number" 
+                v-model.number="patientForm.age" 
+                min="1" 
+                max="120"
+                required
+                class="w-full text-sm py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jenis Kelamin</label>
+              <select 
+                v-model="patientForm.gender"
+                class="w-full text-sm py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+              >
+                <option value="Laki-laki">Laki-laki</option>
+                <option value="Perempuan">Perempuan</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Kategori Stroke</label>
+              <select 
+                v-model="patientForm.strokeCategory"
+                class="w-full text-sm py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+              >
+                <option value="Ringan">Ringan</option>
+                <option value="Sedang">Sedang</option>
+                <option value="Berat">Berat</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Target ROM (%)</label>
+              <input 
+                type="number" 
+                v-model.number="patientForm.targetRom" 
+                min="10" 
+                max="100"
+                class="w-full text-sm py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Dokter Penanggung Jawab</label>
+            <input 
+              type="text" 
+              v-model="patientForm.doctorInCharge" 
+              required
+              class="w-full text-sm py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+            />
+          </div>
+
+          <div class="pt-4 flex justify-end gap-2 border-t border-slate-100">
+            <button 
+              type="button" 
+              @click="isAddPatientModalOpen = false"
+              class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+            >
+              Batal
+            </button>
+            <button 
+              type="submit" 
+              :disabled="isSubmittingPatient"
+              class="px-5 py-2 text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-xl shadow-md shadow-sky-600/20 transition flex items-center gap-1.5"
+            >
+              <i v-if="isSubmittingPatient" class="fa-solid fa-circle-notch fa-spin"></i>
+              <span v-else>Daftarkan Pasien</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+
+    <!-- ===================================================================== -->
+    <!-- MODAL KONFIGURASI GOOGLE APPS SCRIPT ENDPOINT                          -->
+    <!-- ===================================================================== -->
+    <div 
+      v-if="isConfigModalOpen" 
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+    >
+      <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden modal-enter-active">
+        <div class="p-5 bg-gradient-to-r from-slate-900 to-sky-900 text-white flex items-center justify-between">
+          <h3 class="text-base font-bold flex items-center gap-2">
+            <i class="fa-solid fa-server text-sky-400"></i>
+            <span>Pengaturan API Google Apps Script</span>
+          </h3>
+          <button @click="isConfigModalOpen = false" class="text-white/80 hover:text-white">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-4 text-sm">
+          <p class="text-xs text-slate-600">
+            Aplikasi ini mendukung dua mode operasi: 
+            <strong class="text-slate-900">Demo Mode Lokal</strong> (tersimpan di browser) atau 
+            <strong class="text-sky-700">Live REST API</strong> (terhubung langsung ke Google Sheets via Google Apps Script Web App).
+          </p>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Google Apps Script Web App URL</label>
+            <input 
+              type="url" 
+              v-model="gasEndpointInput" 
+              placeholder="https://script.google.com/macros/s/.../exec"
+              class="w-full text-xs font-mono py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 bg-slate-50/50"
+            />
+            <p class="text-[11px] text-slate-400 mt-1">Kosongkan jika ingin kembali ke Mode Demo Mock Lokal.</p>
+          </div>
+
+          <!-- Tombol Tes Koneksi -->
+          <button 
+            type="button" 
+            @click="testGasConnection"
+            :disabled="connectionTestLoading"
+            class="px-3 py-2 text-xs font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-xl border border-sky-200 transition flex items-center gap-2"
+          >
+            <i v-if="connectionTestLoading" class="fa-solid fa-circle-notch fa-spin"></i>
+            <i v-else class="fa-solid fa-bolt"></i>
+            <span>Uji Ping Koneksi Google Apps Script</span>
+          </button>
+
+          <div class="pt-4 flex justify-between items-center border-t border-slate-100">
+            <button 
+              type="button" 
+              @click="gasEndpointInput = ''; saveGasConfig();"
+              class="text-xs text-rose-600 hover:underline font-semibold"
+            >
+              Reset ke Mode Demo
+            </button>
+            <div class="flex gap-2">
+              <button 
+                type="button" 
+                @click="isConfigModalOpen = false"
+                class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+              >
+                Batal
+              </button>
+              <button 
+                type="button" 
+                @click="saveGasConfig"
+                class="px-5 py-2 text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-xl shadow-md transition"
+              >
+                Simpan Konfigurasi
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Application Logic Modules -->
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
